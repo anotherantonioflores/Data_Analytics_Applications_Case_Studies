@@ -71,8 +71,7 @@ plot(cv.dj$k, cv.dj$dev, type= "b")
 par(mfrow = c(1, 1))
 prune.dj = prune.tree(tree.dj, best = 5)
 plot(prune.dj)
-title(, main = "In-class Method")
-text(prune.dj)
+text(prune.dj, pretty = 0)
 
 # Utilized alternate method to create a tree plot due to issues with stock variable
 # combining levels in tree plot.
@@ -93,47 +92,31 @@ preds_dj = predict(tree.dj, newdata=Test_data_clean)
 mean((preds_dj_pruned - Test_data_clean$percent_change_next_weeks_price)^2)
 mean((preds_dj - Test_data_clean$percent_change_next_weeks_price)^2)
 
+##########################################
+# Code for looping though each stock level
+library(Metrics)
 
+stock_levels <- unique(clean_data$stock)
 
+# Created a blank df to paste the MSE's into.
+mse_results <- data.frame(stock = character(), MSE = numeric(), stringsAsFactors = FALSE)
 
-
-
-################################################
-###create list of all 30 stock symbols
-stock_list = levels(Train_data$stock)
-
-#Order by stock symbol. Is this needed? I'm not sure
-Train_data_clean = Train_data_clean %>% 
-  arrange(stock)
-
-Test_data_clean = Test_data_clean %>% 
-  arrange(stock)
-
-
-#Create DF for holding MSE's for each stock
-MSE_list = as.data.frame(stock_list)
-#create empty column for MSE's
-MSE_list$MSE = 0
-i=1
-
-#Looping over each stock
-for(ticker in stock_list){
-  hold_train = Train_data_clean %>% 
-    filter(stock == ticker) %>% 
-    select(!stock)
-  
-  hold_test = Test_data_clean %>% 
-    filter(stock == ticker) %>% 
-    select(!stock)
-  
-  
-  #Put model here:
-  new_model1 = glm(percent_change_next_weeks_price ~., data = hold_train)
-  results1 = predict(new_model1, newdata = hold_test)
-  MSE_list$MSE[i] = round(mean((hold_test$percent_change_next_weeks_price - results1)^2),2)
-  i = i +1
+# For loop that iterates through each stock level returning the tree plot and MSE.
+for (level in stock_levels) {
+  train_subset <- Train_data_clean[Train_data_clean$stock == level, ]
+  test_subset <- Test_data_clean[Test_data_clean$stock == level, ]
+  model <- tree(percent_change_next_weeks_price ~ ., data = train_subset, method = "anova")
+  plot(model)
+  text(model, pretty = 0)
+  title(main = paste("Decision Tree for Stock:", level))
+  predictions <- predict(model, test_subset)
+  mse_value <- mse(test_subset$percent_change_next_weeks_price, predictions)
+  mse_results <- rbind(mse_results, data.frame(stock = level, MSE = mse_value))
+print(mse_results)
+average_mse <- mean(mse_results$MSE)  
+mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE = average_mse))
 }
 
-head(MSE_list)
+print(mse_results)
 
 
