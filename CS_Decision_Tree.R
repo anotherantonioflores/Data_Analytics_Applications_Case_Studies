@@ -112,11 +112,11 @@ for (level in stock_levels) {
   predictions <- predict(model, test_subset)
   mse_value <- mse(test_subset$percent_change_next_weeks_price, predictions)
   mse_results <- rbind(mse_results, data.frame(stock = level, MSE = mse_value))
+}
+
 print(mse_results)
 average_mse <- mean(mse_results$MSE)  
 mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE = average_mse))
-}
-
 print(mse_results)
 
 
