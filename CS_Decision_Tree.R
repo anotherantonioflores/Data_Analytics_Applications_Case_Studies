@@ -6,8 +6,10 @@ library(rpart)
 library(rpart.plot)
 library(ggplotify)
 library(ggplot2)
+library(caret)
+library(e1071)
 
-data = read.delim("dow_jones_index.txt", sep = ",")
+data = read.delim("C:/Users/Client/OneDrive/UTSA MSDA/FALL 2024/DA Applications/case study 3/dow_jones_index.txt", sep = ",")
 
 summary(data)
 colSums(is.na(data))
@@ -18,7 +20,11 @@ clean_data = data %>%
   mutate(stock = as.factor(stock)) %>% 
   mutate(date = mdy(date), across(c(open, high, low, close, next_weeks_open, next_weeks_close), 
                                       ~ as.numeric(str_remove_all(.x, "\\$|,")))) %>%
-   arrange(date) %>% na.omit(clean_data) 
+  select(!next_weeks_open) %>% 
+  select(!next_weeks_close) %>% 
+  select(!percent_return_next_dividend) %>% 
+  select(!days_to_next_dividend) %>% 
+  arrange(date) %>% na.omit(clean_data) 
 
 summary(clean_data)
 colSums(is.na(clean_data))
@@ -97,26 +103,53 @@ mean((preds_dj - Test_data_clean$percent_change_next_weeks_price)^2)
 library(Metrics)
 
 stock_levels <- unique(clean_data$stock)
-
 # Created a blank df to paste the MSE's into.
 mse_results <- data.frame(stock = character(), MSE = numeric(), stringsAsFactors = FALSE)
 
 # For loop that iterates through each stock level returning the tree plot and MSE.
+formula = percent_change_next_weeks_price ~ .
+
 for (level in stock_levels) {
   train_subset <- Train_data_clean[Train_data_clean$stock == level, ]
   test_subset <- Test_data_clean[Test_data_clean$stock == level, ]
-  model <- tree(percent_change_next_weeks_price ~ ., data = train_subset, method = "anova")
-  plot(model)
-  text(model, pretty = 0)
-  title(main = paste("Decision Tree for Stock:", level))
-  predictions <- predict(model, test_subset)
-  mse_value <- mse(test_subset$percent_change_next_weeks_price, predictions)
-  mse_results <- rbind(mse_results, data.frame(stock = level, MSE = mse_value))
+  
+  train_subset = train_subset %>% 
+    select(!stock)
+  
+  test_subset = test_subset %>% 
+    select(!stock)
+  model1 = lm(formula, data=train_subset)
+  
+  model2 <- tree(formula, data = train_subset, method = "anova")
+  
+  model3 = svm(formula, data = train_subset, kernel = "linear")
+  model4 = svm(formula, data = train_subset, kernel = "radial")
+  model5 = svm(formula, data = train_subset, kernel = "poly")
+  
+  #plot(model)
+  #text(model, pretty = 0)
+  #title(main = paste("Decision Tree for Stock:", level))
+  predictions1 <- predict(model1, test_subset)
+  predictions2 = predict(model2, test_subset)
+  predictions3 = predict(model3, test_subset)
+  predictions4 = predict(model4, test_subset)
+  predictions5 = predict(model5, test_subset)
+  
+  mse_value1 <- mse(test_subset$percent_change_next_weeks_price, predictions1)
+  mse_value2 = mse(test_subset$percent_change_next_weeks_price, predictions2)
+  mse_value3 = mse(test_subset$percent_change_next_weeks_price, predictions3)
+  mse_value4 = mse(test_subset$percent_change_next_weeks_price, predictions4)
+  mse_value5 = mse(test_subset$percent_change_next_weeks_price, predictions5)
+  
+  mse_results <- rbind(mse_results, data.frame(stock = level, MSE_LM = mse_value1, MSE_tree = mse_value2, MSE_SVM_linear = mse_value3, MSE_SVM_radial = 
+                                                 mse_value4, MSE_SVM_poly = mse_value5))
 }
 
-print(mse_results)
-average_mse <- mean(mse_results$MSE)  
-mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE = average_mse))
+
+head(mse_results)
+mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE_LM = mean(mse_results$MSE_LM), MSE_tree = mean(mse_results$MSE_tree),
+                                             MSE_SVM_linear = mean(mse_results$MSE_SVM_linear), MSE_SVM_radial = mean(mse_value4),
+                                                                   MSE_SVM_poly = mean(mse_results$MSE_SVM_poly)))
 print(mse_results)
 
 
