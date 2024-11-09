@@ -35,6 +35,7 @@ clean_lags <- clean %>% arrange(date) %>% group_by(quarter,stock) %>%
 clean_no_lag = clean %>% arrange(date) %>% group_by(quarter,stock) %>% mutate(week = row_number()) %>%
     ungroup() 
 
+# Correlation plot
 
 library(corrplot)
 corr_matrix <- cor(clean_lags[, 4:22], use = "complete.obs")
@@ -44,6 +45,12 @@ png("correlation_plot.png", width = 1200, height = 1200)
 corrplot(corr_matrix, method = "circle", type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45)
 dev.off()
+
+# Plot of some of the highly correlated variables to test assumption of no linearity between predictors.
+
+plot(clean_lags$open, clean_lags$high)
+plot(clean_lags$open, clean_lags$high)
+plot(clean_lags$previous_weeks_volume, clean_lags$volume)
 
 summary(clean_lags)
 colSums(is.na(clean_lags))
@@ -140,6 +147,8 @@ for (level in stock_levels) {
   test_subset = test_subset %>% 
     select(!stock)
   model1 = lm(formula, data=train_subset)
+  par(mfrow = c(2, 2))
+  plot(model1)
   
   model2 <- tree(formula, data = train_subset, method = "anova")
   
@@ -147,6 +156,7 @@ for (level in stock_levels) {
   model4 = svm(formula, data = train_subset, kernel = "radial")
   model5 = svm(formula, data = train_subset, kernel = "poly")
   
+  par(mfrow = c(1, 1))
   plot(model2)
   text(model2, pretty = 0)
   title(main = paste("Decision Tree for Stock:", level))
@@ -172,4 +182,3 @@ mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE_LM = mea
                                              MSE_SVM_linear = mean(mse_results$MSE_SVM_linear), MSE_SVM_radial = mean(mse_value4),
                                              MSE_SVM_poly = mean(mse_results$MSE_SVM_poly)))
 print(mse_results)
-
