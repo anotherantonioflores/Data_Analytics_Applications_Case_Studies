@@ -61,6 +61,23 @@ for (i in 1:30) {
   beta_holder = rbind(beta_holder, summary(model1)$coefficients[2,1])
 }
 
+names(beta_holder)[names(beta_holder) == 'X1.53382786611695'] = 'beta'
+beta_holder$stock = c("AA","AXP","BA","BAC","CAT","CSCO","CVX","DD","DIS","GE","HD","HPQ","IBM","INTC","JNJ","JPM", 
+                      "KO","KRFT","MCD","MMM","MRK","MSFT","PFE","PG","T","TRV","UTX","VZ","WMT","XOM")
+
+
+
+beta_holder = beta_holder %>% 
+  arrange(beta)
+
+ggplot(beta_holder, aes(x = reorder(stock,-beta), y = beta))+
+  geom_bar(stat = "identity")+
+  coord_flip()+
+  xlab("stock list")
+
+plot(beta_holder$beta, type="n")
+abline(h=1)
+text(beta_holder$beta, labels = beta_holder$stock, cex = .5)
 
 
 
@@ -82,15 +99,14 @@ ERM = mean(delt_holder$mktrate, na.rm = TRUE)
 # Market Risk Premium = ERM-RFR
 MRP = ERM-RFR
 
-beta_holder$EV = RFR + (beta_holder$X1.53382786611695 * MRP)
-
-beta_holder$stock = c("AA","AXP","BA","BAC","CAT","CSCO","CVX","DD","DIS","GE","HD","HPQ","IBM","INTC","JNJ","JPM", 
-                           "KO","KRFT","MCD","MMM","MRK","MSFT","PFE","PG","T","TRV","UTX","VZ","WMT","XOM")
+beta_holder$EV = RFR + (beta_holder$beta * MRP)
 
 
-names(beta_holder)[names(beta_holder) == 'X1.53382786611695'] = 'beta'
+
 
 plot(beta_holder$beta, beta_holder$EV)
+
+beta_holder$EV = beta_holder$EV * 100
 
 beta_holder = beta_holder %>% 
   arrange(desc(EV))
