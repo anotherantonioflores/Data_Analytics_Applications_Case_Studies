@@ -147,9 +147,9 @@ for (level in stock_levels) {
   model4 = svm(formula, data = train_subset, kernel = "radial")
   model5 = svm(formula, data = train_subset, kernel = "poly")
   
-  #plot(model)
-  #text(model, pretty = 0)
-  #title(main = paste("Decision Tree for Stock:", level))
+  plot(model2)
+  text(model2, pretty = 0)
+  title(main = paste("Decision Tree for Stock:", level))
   predictions1 <- predict(model1, test_subset)
   predictions2 = predict(model2, test_subset)
   predictions3 = predict(model3, test_subset)
