@@ -22,7 +22,9 @@ table(data$stock)
 clean <-data %>% 
   mutate(stock = as.factor(stock)) %>% 
   mutate(date = mdy(date), across(c(open, high, low, close, next_weeks_open, next_weeks_close), 
-                                  ~ as.numeric(str_remove_all(.x, "\\$|,"))))
+                                  ~ as.numeric(str_remove_all(.x, "\\$|,")))) %>% select(!next_weeks_open) %>% 
+  select(!next_weeks_close) %>% 
+  select(!percent_return_next_dividend)
 
 clean_lags <- clean %>% arrange(date) %>% group_by(quarter,stock) %>%
   mutate(week = row_number()) %>% mutate(last_wks_open = lag(open, 1), 
@@ -31,14 +33,14 @@ clean_lags <- clean %>% arrange(date) %>% group_by(quarter,stock) %>%
                                          last_wks_perc_price_change = lag(percent_change_price, 1)) %>%
   ungroup()
 
-  
+
 clean_no_lag = clean %>% arrange(date) %>% group_by(quarter,stock) %>% mutate(week = row_number()) %>%
-    ungroup() 
+  ungroup() 
 
 # Correlation plot
 
 library(corrplot)
-corr_matrix <- cor(clean_lags[, 4:22], use = "complete.obs")
+corr_matrix <- cor(clean_lags[, 4:19], use = "complete.obs")
 plot.new()
 dev.off()
 png("correlation_plot.png", width = 1200, height = 1200)
@@ -80,6 +82,14 @@ ggplot(data = Train_data, aes(x =date, y = volume, group = stock, color = stock)
 ggplot(data = Test_data, aes(x =date, y = volume, group = stock, color = stock)) +
   geom_line()
 
+# Plot to check current weeks percent change in price of stock traded by date.
+ggplot(data = Train_data, aes(x =date, y = percent_change_price, group = stock, color = stock)) +
+  geom_line()
+
+clean %>% filter(quarter == 2) %>% ggplot(aes(x =date, y = percent_change_next_weeks_price, group = stock, color = stock)) +
+  geom_line() + geom_vline(xintercept = as.Date("2011-05-27"), linetype = "dashed", color = "red") +
+  annotate("text", x = as.Date("2011-05-27"), y = -15, label = "2011-05-27", color = "red", angle = 0, vjust = -0.5)
+
 # Creating initial decision tree.
 lag_tree.dj = tree(percent_change_next_weeks_price~., data = Train_data_clean)
 summary(lag_tree.dj)
@@ -87,7 +97,7 @@ summary(lag_tree.dj)
 levels(Train_data_clean$stock)
 
 plot(lag_tree.dj)
-text(lag_tree.dj)
+text(lag_tree.dj, pretty = 0)
 
 # Perform cost complexity pruning by CV
 cv.dj = cv.tree(lag_tree.dj)
@@ -102,7 +112,7 @@ plot(cv.dj$size, cv.dj$dev, type= "b")
 plot(cv.dj$k, cv.dj$dev, type= "b")
 # Note: Best size = 4
 
-# Pruned the tree utilizing the best size (5).
+# Pruned the tree utilizing the best size (4).
 par(mfrow = c(1, 1))
 prune.dj = prune.tree(lag_tree.dj, best = 4)
 plot(prune.dj)
@@ -121,8 +131,8 @@ preds_dj_pruned = predict(prune.dj, newdata=Test_data_clean)
 preds_dj = predict(lag_tree.dj, newdata=Test_data_clean)
 
 # Computed the MSE. 
-# The MSE for the pruned tree: 8.42
-# The MSE for the initial tree: 9.23
+# The MSE for the pruned tree: 8.05
+# The MSE for the initial tree: 9.8
 mean((preds_dj_pruned - Test_data_clean$percent_change_next_weeks_price)^2)
 mean((preds_dj - Test_data_clean$percent_change_next_weeks_price)^2)
 
@@ -147,8 +157,8 @@ for (level in stock_levels) {
   test_subset = test_subset %>% 
     select(!stock)
   model1 = lm(formula, data=train_subset)
-  par(mfrow = c(2, 2))
-  plot(model1)
+  #par(mfrow = c(2, 2))
+  #plot(model1)
   
   model2 <- tree(formula, data = train_subset, method = "anova")
   
@@ -178,7 +188,8 @@ for (level in stock_levels) {
 
 
 head(mse_results)
-mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE_LM = mean(mse_results$MSE_LM), MSE_tree = mean(mse_results$MSE_tree),
+mse_results <- rbind(mse_results, data.frame(stock = "Average MSE", MSE_LM = mean(mse_results$MSE_LM,na.rm =TRUE ), MSE_tree = mean(mse_results$MSE_tree),
                                              MSE_SVM_linear = mean(mse_results$MSE_SVM_linear), MSE_SVM_radial = mean(mse_value4),
                                              MSE_SVM_poly = mean(mse_results$MSE_SVM_poly)))
 print(mse_results)
+
