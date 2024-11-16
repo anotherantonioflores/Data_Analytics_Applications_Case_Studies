@@ -1,0 +1,114 @@
+---
+title: "Case Study: Customer Retention and Acquisition"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## GitHub Documents
+
+This is an R Markdown format used for publishing markdown documents to GitHub. When you click the **Knit** button all R code chunks are run and a markdown file (.md) suitable for publishing to GitHub is generated.
+
+## Install required packages if you need them and load
+```{r, echo=FALSE}
+rm(list=ls()) # clear environment
+#install.packages("SMCRM") # maybe function to install if we don't have it?
+
+library(SMCRM)
+library(dplyr)
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(pdp)
+```
+
+## Get the data
+```{r, echo=FALSE}
+data("acquisitionRetention")
+df <- acquisitionRetention
+str(df)
+summary(df)
+
+# Convert binary variables from numeric to factors
+df$acquisition <- as.factor(df$acquisition)
+df$industry <- as.factor(df$industry)
+
+# Drop customer variable
+df = select(df, -customer)
+```
+
+## Quick checks
+```{r, echo=FALSE}
+print(paste("Total rows:", count(df)))
+print(paste("Missing rows:", count(df) - count(na.omit(df)))) #no missing data
+
+# If duration is 0 acquisition is 0; if duration > 0 acquisition is 1. Predicting duration predicts acquisition.
+check_acquisition_duration <- df %>%
+  filter((acquisition == 1 & duration > 0) | (acquisition == 0 & duration == 0))
+print(paste("Acquisition calculated from Duration:", count(df) == count(check_acquisition_duration)))
+
+# Check balance
+df %>% count(acquisition) #0:162 ; 1:338
+```
+
+## Split the data
+```{r, echo=FALSE}
+set.seed(123)
+trainIndex <- createDataPartition(df$acquisition, p = 0.7, list = FALSE)
+train <- df[trainIndex, ]
+test <- df[-trainIndex, ]
+
+# Since we know acquisition based on the value of duration, we can't include this variable as an independent variable
+independent_vars <- setdiff(names(train), c("duration", "acquisition"))
+```
+
+
+## Build Random Forest Model
+```{r, echo=FALSE}
+rf_duration <- randomForest(duration ~ ., 
+                            data = train[, c(independent_vars, "duration")], 
+                            importance = TRUE, 
+                            ntree = 500)
+
+# Predict Duration on the test set
+rf_duration_preds <- predict(rf_duration, test[, independent_vars])
+
+# Evaluate Duration predictions
+regression_metrics <- data.frame(
+  RMSE = sqrt(mean((rf_duration_preds - test$duration)^2)),
+  R2 = cor(rf_duration_preds, test$duration)^2
+)
+print("Regression Metrics for Duration Prediction:")
+print(regression_metrics)
+
+
+# Derive Acquisition predictions
+rf_acquisition_preds <- ifelse(rf_duration_preds > 0, 1, 0)
+
+# Evaluate Acquisition predictions
+confusion_matrix <- confusionMatrix(factor(rf_acquisition_preds), factor(test$acquisition))
+print("Confusion Matrix for Acquisition Prediction:")
+print(confusion_matrix)
+
+#Feature Importance
+importance <- importance(rf_duration)
+var_importance <- data.frame(Variable = rownames(importance),
+                             Importance = importance[, 1])
+var_importance <- var_importance[order(var_importance$Importance, decreasing = TRUE), ]
+print("Best Variables for Duration Prediction (Best to Worst):")
+print(var_importance, 10)
+
+```
+
+
+## Partial Dependency Plots
+```{r, echo=FALSE}
+# PDP for the top 3 variables
+top_vars <- var_importance$Variable[1:3]
+for (var in top_vars) {
+  pd <- partial(rf_duration, pred.var = var, train = train[, independent_vars])
+  plotPartial(pd, main = paste("Partial Dependence Plot for", var))
+}
+```
