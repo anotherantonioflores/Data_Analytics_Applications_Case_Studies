@@ -25,6 +25,9 @@ TreeBagA <- randomForest(as.factor(acquisition) ~ acq_exp + acq_exp_sq + industr
                          data = train, ntree = 1000, importance = TRUE)
 print(TreeBagA)
 
+importance(TreeBagA)
+varImpPlot(TreeBagA)
+
 # Prediction and error on test data
 bag.probs.test <- predict(TreeBagA, newdata = test)
 matrix_test <- table(test$acquisition, bag.probs.test)
@@ -87,3 +90,5 @@ pred.test <- test$duration
 # Calculate Mean Squared Error (MSE)
 mse_rf <- mean((yhat.bag_rf - pred.test)^2)
 print(mse_rf)
+
+
