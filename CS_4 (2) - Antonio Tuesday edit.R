@@ -66,7 +66,7 @@ svm_rad_preds <- predict(svm_radial, newdata = test)
 svm_poly_preds <- predict(svm_poly, newdata = test)
 
 tree_preds <- predict(tree_model, newdata = test)
-treepred1 = ifelse(tree_preds[, 1] >0.5, 1, 0)
+treepred1 = ifelse(tree_preds[, 2] >0.5, 1, 0)
 
 
 
@@ -98,7 +98,8 @@ Test.err_tree <- 1 - sum(diag(matrix_test6)) / sum(matrix_test6)
 
 
 
-rbind(Test.err_log, Test.err_lda, Test.err_svm_lin, Test.err_svm_poly, Test.err_svm_rad, Test.err_tree, Test.errRf)
+rbind(Test.err_log, Test.err_lda, Test.err_svm_lin, Test.err_svm_poly, Test.err_svm_rad, 
+      Test.err_tree, Test.errRf)
 
 
 # Evaluating model and identifying the 2 most significant predictors (employees and industry)
@@ -108,8 +109,6 @@ legend("topright", legend = c("OOB Error", "Class 1 Error", "Class 2 Error"),
        col = c(1, 2, 3), lty = 1, cex = 0.8)
 importance(TreeBagA)
 varImpPlot(TreeBagA)
-
-length(TreeBagA$predicted)
 
 # Hyperparameter tuning loop
 mtry.values <- seq(1, 5, 1)
@@ -123,7 +122,9 @@ oob_err <- c()
 
 for (i in 1:nrow(hyper_grid)) {
   set.seed(1)
-  model <- randomForest(as.factor(acquisition) ~ acq_exp + acq_exp_sq + industry + revenue + employees, data = train, importance = TRUE, mtry = hyper_grid$mtry[i], ntree = hyper_grid$ntree[i])
+  model <- randomForest(as.factor(acquisition) ~ acq_exp + acq_exp_sq + industry + revenue + employees,
+                        data = train, importance = TRUE, 
+                        mtry = hyper_grid$mtry[i], ntree = hyper_grid$ntree[i])
   oob_err[i] <- model$err.rate[length(model$err.rate)]
 }
 
@@ -150,7 +151,8 @@ print(Test.errRF2)
 
 # Gradient boosting model (MSE not as good as random forest [0.24])
 boostA <- gbm(acquisition ~ acq_exp + acq_exp_sq + industry + revenue + employees, 
-              data = train, distribution = 'bernoulli', n.trees = 1000, interaction.depth = 1, shrinkage = 0.001, verbose = F)
+              data = train, distribution = 'bernoulli', n.trees = 1000, interaction.depth = 1,
+              shrinkage = 0.001, verbose = F)
 boost.probs <- predict(boostA, n.trees = 1000, newdata = test, type = "response")
 boost.pred <- ifelse(boost.probs > 0.5, 1, 0)
 matrix_test <- table(test$acquisition, boost.pred)
@@ -163,9 +165,7 @@ print(Test.errBoost)
 combined = rbind(train, test)
 set.seed(1)
 actual_predictions <- predict(TreeBagA, newdata = combined)
-summary(actual_predictions)
 combined = cbind(combined, actual_predictions)
-
 subset = filter(combined, actual_predictions ==1)
 
 
@@ -183,7 +183,8 @@ new_test <- subset[-index2, ]
 
 
 # Train regression model to predict duration
-TreeBagD <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 1000, importance = TRUE)
+TreeBagD <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 1000,
+                         importance = TRUE)
 print(TreeBagD)
 
 # Filter test set for acquisition == 1
@@ -198,12 +199,14 @@ mse_rf <- mean((yhat.bag_rf - pred.test)^2)
 print(mse_rf)
 
 # MAPE when predicting duration (26.55)
-abs_percent_error <- abs((yhat.bag_rf - pred.test) / pred.test) * 100
+abs_percent_error <- abs(yhat.bag_rf - pred.test) /pred.test * 100
+abs_percent_error[is.infinite(abs_percent_error)] = 100
 mape_rf <- mean(abs_percent_error)
 print(mape_rf)
 
 # Boosted Tree for Predicting duration
-boostB <- gbm(duration~. - acquisition, data = new_train, n.trees = 1000, interaction.depth = 2, shrinkage = 0.001, verbose = F)
+boostB <- gbm(duration~. - acquisition, data = new_train, n.trees = 1000, interaction.depth = 2,
+              shrinkage = 0.001, verbose = F)
 summary(boostB)
 boost.probs <- predict(boostB, n.trees = 1000, newdata = new_test)
 
@@ -221,6 +224,7 @@ print(mse_boost)
 
 # MAPE when predicting duration (22.38)
 abs_percent_error <- abs((yhat.boost - pred.test) / pred.test) * 100
+abs_percent_error[is.infinite(abs_percent_error)] = 100
 mape_Boost <- mean(abs_percent_error)
 print(mape_Boost)
 
@@ -236,7 +240,8 @@ oob_err <- numeric(nrow(hyper_grid))
 
 for (i in 1:nrow(hyper_grid)) {
   set.seed(1)
-  model <- randomForest(duration ~. -acquisition, data = new_train, importance = TRUE, mtry = hyper_grid$mtry[i], ntree = hyper_grid$ntree[i])
+  model <- randomForest(duration ~. -acquisition, data = new_train, importance = TRUE,
+                        mtry = hyper_grid$mtry[i], ntree = hyper_grid$ntree[i])
   oob_err[i] <- model$mse[length(model$mse)]
 }
 
@@ -244,7 +249,8 @@ for (i in 1:nrow(hyper_grid)) {
 opt_i <- which.min(oob_err)
 print(hyper_grid[opt_i, ])
 
-TreeBagE <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 5000, mtry=4, importance = TRUE)
+TreeBagE <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 5000,
+                         mtry=4, importance = TRUE)
 print(TreeBagE)
 
 # Filter test set for acquisition == 1
@@ -260,6 +266,7 @@ print(mse_rf)
 
 # MAPE when predicting duration (28.96)
 abs_percent_error <- abs((yhat.bag_rf - pred.test) / pred.test) * 100
+abs_percent_error[is.infinite(abs_percent_error)] = 100
 mape_rf <- mean(abs_percent_error)
 print(mape_rf)
 
