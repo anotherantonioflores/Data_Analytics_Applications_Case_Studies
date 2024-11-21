@@ -73,7 +73,7 @@ print(hyper_grid[opt_i, ])
 TreeBagB <- randomForest(as.factor(acquisition) ~ acq_exp + acq_exp_sq + industry + revenue + employees, data = train, mtry = 1, ntree = 3000, importance = TRUE)
 print(TreeBagB)
 plot(TreeBagB, main="OOB Error vs Number of Trees", xlab="Number of Trees", ylab="Error Rate")
-legend("topright", legend = c("OOB Error", "Class 1 Error", "Class 2 Error"), 
+legend("topright", legend = c("OOB Error", "Class 1(0) Error", "Class 2(1) Error"), 
        col = c(1, 2, 3), lty = 1, cex = 0.8)
 importance(TreeBagB)
 varImpPlot(TreeBagB)
