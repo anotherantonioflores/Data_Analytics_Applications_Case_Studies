@@ -101,7 +101,7 @@ Test.err_tree <- 1 - sum(diag(matrix_test6)) / sum(matrix_test6)
 
 
 
-###Results
+###Preliminary Results
 rbind(Test.err_log, Test.err_lda, Test.err_svm_lin, Test.err_svm_poly, Test.err_svm_rad, 
       Test.err_tree, Test.errRf)
 
@@ -172,6 +172,16 @@ Test.errBoost <- 1 - sum(diag(matrix_test)) / sum(matrix_test)
 print(Test.errBoost)
 
 
+
+
+#all results
+
+rbind(Test.err_log, Test.err_lda, Test.err_svm_lin, Test.err_svm_poly, Test.err_svm_rad, 
+      Test.err_tree, Test.errRf, Test.errRF2, Test.errBoost)
+
+
+
+
 #### Getting Actual Predictions
 
 combined = rbind(train, test)
@@ -197,7 +207,8 @@ new_test <- subset[-index2, ]
 TreeBagD <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 1000,
                          importance = TRUE)
 print(TreeBagD)
-
+importance(TreeBagD)
+varImpPlot(TreeBagD)
 # Filter test set for acquisition == 1
 
 # Predict on the filtered test set
@@ -205,14 +216,14 @@ yhat.bag_rf <- predict(TreeBagD, newdata = new_test)
 pred.test <- new_test$duration
 
 # Calculate Mean Squared Error (MSE) when predicting duration (171238.6)
-mse_rf <- mean((yhat.bag_rf - pred.test)^2)
-print(mse_rf)
+mse_rf1 <- mean((yhat.bag_rf - pred.test)^2)
+print(mse_rf1)
 
 # MAPE when predicting duration (26.55)
 abs_percent_error <- abs(yhat.bag_rf - pred.test) /pred.test * 100
 abs_percent_error[is.infinite(abs_percent_error)] = 100
-mape_rf <- mean(abs_percent_error)
-print(mape_rf)
+mape_rf1 <- mean(abs_percent_error)
+print(mape_rf1)
 
 # Boosted Tree for Predicting duration
 boostB <- gbm(duration~. - acquisition, data = new_train, n.trees = 1000, interaction.depth = 2,
@@ -220,11 +231,13 @@ boostB <- gbm(duration~. - acquisition, data = new_train, n.trees = 1000, intera
 summary(boostB)
 boost.probs <- predict(boostB, n.trees = 1000, newdata = new_test)
 
+
+
 #Partial dependence plot
-par(mfrow = c(1, 2))
+par(mfrow = c(2, 2))
 plot(boostB, i = "employees")
 plot(boostB, i = "revenue")
-
+plot(boostB, i = "acq_exp")
 
 # Calculate Mean Squared Error (MSE)
 yhat.boost <- predict(boostB, newdata = new_test)
@@ -261,21 +274,27 @@ print(hyper_grid[opt_i, ])
 TreeBagE <- randomForest(duration ~ . - acquisition, data = new_train, ntree = 5000,
                          mtry=4, importance = TRUE)
 print(TreeBagE)
+importance(TreeBagE)
+varImpPlot(TreeBagE)
+
 
 # Predict on the filtered test set
 yhat.bag_rf <- predict(TreeBagE, newdata = new_test)
 #pred.test <- test$duration
 
 # Calculate Mean Squared Error (MSE)
-mse_rf <- mean((yhat.bag_rf - pred.test)^2)
-print(mse_rf)
+mse_rf2 <- mean((yhat.bag_rf - pred.test)^2)
+print(mse_rf2)
 
 # MAPE when predicting duration (28.96)
 abs_percent_error <- abs((yhat.bag_rf - pred.test) / pred.test) * 100
 abs_percent_error[is.infinite(abs_percent_error)] = 100
-mape_rf <- mean(abs_percent_error)
-print(mape_rf)
+mape_rf2 <- mean(abs_percent_error)
+print(mape_rf2)
 
+
+rbind(mse_rf1, mse_boost, mse_rf2)
+rbind(mape_rf1, mape_Boost, mape_rf2)
 # Strongest model for predicting acquisition is TreeBagB
 # Strongest model for predicting duration is BoostB
 
